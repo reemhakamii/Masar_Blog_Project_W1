@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, HttpStatus, HttpCode, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, HttpStatus, HttpCode, Request, Put } from '@nestjs/common';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -73,5 +73,20 @@ export class ArticlesController {
 
     return 'Articles populated successfully!';
   }
-  
+  @Put(':id')
+@UseGuards(JwtAuthGuard)
+async updateArticle(
+  @Param('id') id: string, 
+  @Body() updateArticleDto: UpdateArticleDto,
+  @Request() req: any
+) {
+  const userId = req.user.id;
+  return this.articlesService.updateArticle(id, userId, updateArticleDto);
+  }
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  async deleteArticle(@Param('id') id: string, @Request() req: any) {
+    const userId = req.user.id;
+    return this.articlesService.deleteArticle(id, userId);
+  }
 }

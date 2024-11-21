@@ -1,65 +1,47 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ValidationPipe } from '@nestjs/common';
-import { faker } from '@faker-js/faker';
-import { User } from './entities/user.entity';
-import { DataSource } from 'typeorm';
 
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
-  @Get('/getUsers')
-  getAllUsers() {
+  @Get()
+  async getAllUsers() {
     return this.usersService.getAllUsers();
   }
 
-  @Post('/addUser')
-  addNewUser(@Body(ValidationPipe) data: CreateUserDto) {
-    return this.usersService.addNewUser(data);
+  @Post()
+  async addNewUser(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.addNewUser(createUserDto);
   }
 
-  @Patch(':id')
-  updateUser(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.updateUser(updateUserDto, id);
+  @Get(':id')
+  async getUserProfile(@Param('id') id: string) {
+    return this.usersService.getUserProfile(id);
   }
 
-  @Delete(':id')
-  deleteUser(@Param('id') id: string) {
-    return this.usersService.deleteUser(id);
+  @Post(':id/follow/:followingId')
+  async followUser(
+    @Param('id') followerId: string,
+    @Param('followingId') followingId: string,
+  ) {
+    await this.usersService.followUser(followerId, followingId);
+    return { message: 'Followed successfully' };
   }
 
-@Post('/login')
-async login(@Body() body: { email: string, password: string }) {
-  const { email, password } = body;
-  console.log('Login Attempt:', { email, password });
-  const { token } = await this.usersService.login(email, password);
-  return { token };
-}
+  @Post(':id/unfollow/:followingId')
+  async unfollowUser(
+    @Param('id') followerId: string,
+    @Param('followingId') followingId: string,
+  ) {
+    await this.usersService.unfollowUser(followerId, followingId);
+    return { message: 'Unfollowed successfully' };
+  }
 
-
-  @Post('/fillUsers')
-  async fillUsers() {
-    const userRepository = this.dataSource.getRepository(User);
-    const batchSize = 100;
-    const totalUsers = 1000;
-
-    for (let i = 0; i < totalUsers; i += batchSize) {
-      const usersBatch = Array.from({ length: batchSize }, () => ({
-        email: faker.internet.email(),
-        username: faker.internet.userName(),
-        password: faker.internet.password(),
-      }));
-
-      // Save the batch of users
-      await userRepository.save(usersBatch);
-    }
-
-    return { message: '1000 Users populated successfully!' };
+  @Post('search')
+  async searchByUsername(@Query('username') username: string) {
+    return this.usersService.searchByUsername(username);
   }
 }

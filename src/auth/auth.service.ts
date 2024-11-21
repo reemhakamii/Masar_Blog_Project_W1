@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
@@ -13,6 +13,8 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
+    console.log('Login Attempt:', { email });
+
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
@@ -30,8 +32,8 @@ export class AuthService {
         return result;
     }
 
-    return null;
-}
+    throw new UnauthorizedException('Invalid login credentials');
+  }
 
   async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt();

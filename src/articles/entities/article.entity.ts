@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Comment } from 'src/comments/entities/comment.entity';
 
@@ -14,8 +14,16 @@ export class Article {
   body: string;
 
   @ManyToOne(() => User, (user) => user.articles)
-  author: User;
-    
+  user: User;
+
   @OneToMany(() => Comment, (comment) => comment.article)
   comments: Comment[];
+  @Column()
+  userId: string;
+
+  @CreateDateColumn()
+  createdAt: Date; 
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
