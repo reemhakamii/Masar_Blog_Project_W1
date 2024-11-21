@@ -4,17 +4,17 @@ dotenv.config();
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'mysql',
-  host: 'localhost',
-  port: 3307,
-  username: 'root',
-  password: 'Reemii888',
-  database: 'blog',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.PORT) || 3307,
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   //entities: [Episode],
   //autoLoadEntities: true,
-  synchronize: true, // todo: not safe for production and we should use migrations instead
+  synchronize: true,
   // subscribers: [__dirname + '/domain/subscribers/*.subscriber{.ts,.js}'],
   migrations: ['src/migration/*{.ts,.js}'],
-    entities: ['src/**/*.entity{.ts,.js}'],
+  entities: [__dirname + 'src/**/*.entity{.ts,.js}']
 };
 
 const dataSource = new DataSource(dataSourceOptions);

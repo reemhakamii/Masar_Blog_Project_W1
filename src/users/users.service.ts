@@ -1,96 +1,89 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
-import { JwtService } from '@nestjs/jwt';
+import { Repository, Like } from 'typeorm';
+import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { User } from './entities/user.entity';
-import { JwtPayload } from '../auth/jwt-payload.interface';
+import { Follow } from 'src/follows/entities/follow.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User) private userRepository: Repository<User>,
-    private jwtService: JwtService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+
+    @InjectRepository(Follow)
+    private readonly followRepository: Repository<Follow>,
   ) {}
 
-  async getAllUsers() {
-    return await this.userRepository.find();
+  async getAllUsers(): Promise<User[]> {
+    return this.userRepository.find();
   }
-  async findById(id: string): Promise<User | undefined> {
-    return this.userRepository.findOne({ where: { id } });
+
+  async addNewUser(createUserDto: CreateUserDto): Promise<User> {
+    const user = this.userRepository.create(createUserDto);
+    return this.userRepository.save(user);
   }
-  
+
+  async updateUser(updateUserDto: UpdateUserDto, id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    Object.assign(user, updateUserDto);
+    return this.userRepository.save(user);
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    await this.userRepository.delete(id);
+  }
+
+  async getUserProfile(userId: string): Promise<User> {
+    return this.userRepository.findOneOrFail({
+      where: { id: userId },
+      relations: ['followers', 'following'],
+    });
+  }
+
+  async followUser(followerId: string, followingId: string): Promise<void> {
+    const follower = await this.userRepository.findOne({ where: { id: followerId } });
+    const following = await this.userRepository.findOne({ where: { id: followingId } });
+
+    if (!follower || !following) {
+      throw new Error('User(s) not found');
+    }
+
+    const follow = this.followRepository.create({ follower, following });
+    await this.followRepository.save(follow);
+  }
+
+  async unfollowUser(followerId: string, followingId: string): Promise<void> {
+    const follower = await this.userRepository.findOne({ where: { id: followerId } });
+    const following = await this.userRepository.findOne({ where: { id: followingId } });
+
+    if (!follower || !following) {
+      throw new Error('User(s) not found');
+    }
+
+    await this.followRepository.delete({ follower, following });
+  }
+
   async findByEmail(email: string): Promise<User | undefined> {
     return this.userRepository.findOne({ where: { email } });
   }
 
-
-async addNewUser(createUserDto: CreateUserDto) {
-  const { username, email, password } = createUserDto;
-
-  const existingUser = await this.userRepository.findOne({ where: { email } });
-  if (existingUser) {
-      throw new UnauthorizedException('Email already in use');
+  async createMany(users: CreateUserDto[]): Promise<User[]> {
+    const usersToCreate = this.userRepository.create(users);
+    return this.userRepository.save(usersToCreate);
   }
 
-  const user = new User();
-  user.username = username;
-  user.email = email;
-  user.password = await bcrypt.hash(password, 10);
-
-  return await this.userRepository.save(user);
-}
-
-async updateUser(updateUserDto: UpdateUserDto, id: string) {
-  if (updateUserDto.password) {
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
-  }
-  await this.userRepository.update(id, updateUserDto);
-  return await this.userRepository.findOneBy({ id });
-}
-
-  async deleteUser(id: string) {
-    return await this.userRepository.delete(id);
-  }
-
-async login(email: string, password: string): Promise<{ token: string }> {
-  console.log('Login Attempt:', { email, password });
-  const user = await this.userRepository.findOne({ where: { email } });
-
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new UnauthorizedException('Invalid credentials');
-  }
-  
-  console.log('User found:', user);
-  console.log('JWT_SECRET:', process.env.JWT_SECRET);
-
-
-  const payload: JwtPayload = { id: user.id, username: user.username };
-  const token = this.jwtService.sign(payload);
-
-  return { token };
-}
-async rehashPlainPasswords() {
-  const users = await this.userRepository.find();
-
-  for (const user of users) {
-    if (!user.password.startsWith('$2b$')) { 
-      const hashedPassword = await bcrypt.hash(user.password, 10); 
-      user.password = hashedPassword;
-      await this.userRepository.save(user);
-    }
-  }
-
-  return { message: 'Rehashed all plain text passwords.' };
-}
-
-  async validateUserByJwt(payload: JwtPayload): Promise<User | null> {
-    const user = await this.userRepository.findOneBy({ id: payload.id });
-    if (!user) {
-      throw new UnauthorizedException('User not found');
-    }
-    return user;
+  async searchByUsername(username: string): Promise<User[]> {
+    return this.userRepository.find({
+      where: { username: Like(`%${username}%`) },
+    });
   }
 }
